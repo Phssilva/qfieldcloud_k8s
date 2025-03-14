@@ -1,0 +1,6 @@
+# Adicione estas variáveis ao seu arquivo .env
+
+# Caminho para o certificado SSL do Let's Encrypt
+QFIELDCLOUD_TLS_CERT=/etc/letsencrypt/live/qfieldcloud.eastus2.cloudapp.azure.com/fullchain.pem
+QFIELDCLOUD_TLS_KEY=/etc/letsencrypt/live/qfieldcloud.eastus2.cloudapp.azure.com/privkey.pem
+QFIELDCLOUD_TLS_DHPARAMS=/etc/nginx/dhparams/ssl-dhparams.pem

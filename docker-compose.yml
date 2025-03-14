@@ -47,7 +47,7 @@ services:
       STORAGE_REGION_NAME: ${STORAGE_REGION_NAME:-}
       STORAGE_ENDPOINT_URL: ${STORAGE_ENDPOINT_URL:-}
       STORAGES: ${STORAGES}
-      QFIELDCLOUD_DEFAULT_NETWORK: ${QFIELDCLOUD_DEFAULT_NETWORK:-${COMPOSE_PROJECT_NAME}_default}
+      QFIELDCLOUD_DEFAULT_NETWORK: ${QFIELDCLOUD_DEFAULT_NETWORK:-qfieldcloud_default}
       GEODB_HOST: ${GEODB_HOST}
       GEODB_PORT: ${GEODB_PORT}
       GEODB_USER: ${GEODB_USER}
@@ -98,6 +98,7 @@ services:
       - ./conf/nginx/config.d:/etc/nginx/config.d/:ro
       - ./conf/nginx/dhparams:/etc/nginx/dhparams/:ro
       - certbot_www:/var/www/certbot
+      - static_volume:/var/www/html/staticfiles
     ports:
       - ${WEB_HTTP_PORT}:80
       - ${WEB_HTTPS_PORT}:443
@@ -143,7 +144,8 @@ services:
       args:
         DEBUG_BUILD: ${DEBUG}
     tty: true
-    command: bash -c "echo QGIS built"
+    command: tail -f /dev/null
+    restart: unless-stopped
     logging: *default-logging
     stop_grace_period: 15m
 
@@ -163,6 +165,31 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${LOG_DIRECTORY}:/log
       - ${TMP_DIRECTORY}:/tmp
+    environment:
+      WORKER_QGIS_MEMORY_LIMIT: ${WORKER_QGIS_MEMORY_LIMIT}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      ENVIRONMENT: ${ENVIRONMENT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_SSLMODE: ${POSTGRES_SSLMODE}
+      STORAGE_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:-}
+      STORAGE_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:-}
+      STORAGE_BUCKET_NAME: ${STORAGE_BUCKET_NAME:-}
+      STORAGE_REGION_NAME: ${STORAGE_REGION_NAME:-}
+      STORAGE_ENDPOINT_URL: ${STORAGE_ENDPOINT_URL:-}
+      STORAGES: ${STORAGES}
+      QFIELDCLOUD_DEFAULT_NETWORK: ${QFIELDCLOUD_DEFAULT_NETWORK:-qfieldcloud_default}
+      QFIELDCLOUD_HOST: ${QFIELDCLOUD_HOST}
+      QFIELDCLOUD_WORKER_QFIELDCLOUD_URL: ${QFIELDCLOUD_WORKER_QFIELDCLOUD_URL}
+      QFIELDCLOUD_QGIS_IMAGE_NAME: ${QFIELDCLOUD_QGIS_IMAGE_NAME:-qfieldcloud_qgis}
+      ACCOUNT_EMAIL_VERIFICATION: ${ACCOUNT_EMAIL_VERIFICATION}
+      QFIELDCLOUD_TRANSFORMATION_GRIDS_VOLUME_NAME: ${QFIELDCLOUD_TRANSFORMATION_GRIDS_VOLUME_NAME:-transformation_grids}
     logging: *default-logging
     scale: ${QFIELDCLOUD_WORKER_REPLICAS}
     stop_grace_period: 15m
@@ -187,7 +214,7 @@ services:
   memcached:
     image: memcached:1
     expose:
-      - "11211:11211"
+      - "11211"
 
 volumes:
   static_volume:

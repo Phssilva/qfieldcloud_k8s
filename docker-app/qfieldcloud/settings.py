@@ -522,7 +522,7 @@ CONSTANCE_CONFIG = {
         int,
     ),
     "WORKER_QGIS_MEMORY_LIMIT": (
-        "1000m",
+        "1g",
         "Maximum memory for each QGIS worker container.",
         str,
     ),
