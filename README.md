@@ -6,8 +6,6 @@ Este guia fornece instruções detalhadas para configurar o QField Cloud, garant
 
 - Docker e Docker Compose instalados
 - Git
-- Acesso à internet para baixar imagens Docker
-- Um editor de texto para modificar arquivos de configuração
 
 ## Passos para Configuração
 
