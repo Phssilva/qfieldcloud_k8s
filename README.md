@@ -1,243 +1,150 @@
-# QField Cloud - Guia de Configuração
+# QField Cloud no Azure Kubernetes Service (AKS)
 
-Este guia fornece instruções detalhadas para configurar o QField Cloud, garantindo que todas as funcionalidades, incluindo o download de projetos QGIS no aplicativo QField mobile, funcionem corretamente.
+Este guia descreve como implantar o QField Cloud em um cluster Kubernetes no Azure (AKS).
 
 ## Pré-requisitos
 
-- Docker e Docker Compose instalados
-- Git
+- Azure CLI instalado e configurado
+- kubectl instalado
+- Docker instalado
+- Helm instalado (para o Cert-Manager)
+- Uma assinatura ativa do Azure
 
-## Passos para Configuração
+## Estrutura de Arquivos
 
-### 1. Clone o Repositório
+```
+k8s/
+├── namespace.yaml            # Define o namespace Kubernetes
+├── configmap.yaml            # Configurações não-sensíveis
+├── secrets.yaml              # Informações sensíveis (senhas, chaves)
+├── storage.yaml              # Persistent Volume Claims
+├── postgres.yaml             # Banco de dados PostgreSQL
+├── app.yaml                  # Aplicação Django principal
+├── worker-wrapper.yaml       # Serviço de processamento de tarefas
+├── qgis.yaml                 # Serviço QGIS
+├── nginx.yaml                # Servidor web e Ingress
+├── build-push-images.sh      # Script para construir e enviar imagens
+├── create-aks-cluster.sh     # Script para criar o cluster AKS
+├── setup-ingress-certmanager.sh # Configuração de Ingress e certificados
+├── deploy.sh                 # Script de implantação
+└── initialize-app.sh         # Inicialização da aplicação
+```
+
+## Passos para Implantação
+
+### 1. Preparar o Ambiente Azure
+
+Execute o script para criar o cluster AKS e o Azure Container Registry:
 
 ```bash
-git clone --recurse-submodules git@github.com:opengisch/QFieldCloud.git
-cd QFieldCloud
+chmod +x k8s/create-aks-cluster.sh
+./k8s/create-aks-cluster.sh
 ```
 
-### 2. Configure o Arquivo .env
+### 2. Construir e Enviar as Imagens Docker
 
-Copie o arquivo de exemplo para criar seu próprio arquivo de configuração:
+Execute o script para construir e enviar as imagens Docker para o ACR:
 
 ```bash
-cp .env.example .env
+chmod +x k8s/build-push-images.sh
+./k8s/build-push-images.sh
 ```
 
-Edite o arquivo `.env` para configurar as variáveis de ambiente necessárias:
+### 3. Configurar o Ingress Controller e o Cert-Manager
+
+Execute o script para configurar o Application Gateway Ingress Controller e o Cert-Manager:
 
 ```bash
-# Configurações básicas
-ENVIRONMENT=development
-QFIELDCLOUD_HOST=localhost
-DJANGO_SETTINGS_MODULE=qfieldcloud.settings
-
-# Configurações de banco de dados
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=qfieldcloud
-
-# Configurações de e-mail
-EMAIL_HOST=smtp4dev
-EMAIL_PORT=25
-EMAIL_HOST_USER=
-EMAIL_HOST_PASSWORD=
-EMAIL_USE_TLS=False
-DEFAULT_FROM_EMAIL=info@qfield.cloud
-
-# Configurações de armazenamento
-STORAGE_ACCESS_KEY_ID=minioadmin
-STORAGE_SECRET_ACCESS_KEY=minioadmin
-STORAGE_BUCKET_NAME=qfieldcloud
-STORAGE_REGION_NAME=
-STORAGE_ENDPOINT_URL=http://minio:9000
-
-# Configurações críticas para o funcionamento do worker
-WORKER_QGIS_MEMORY_LIMIT=1g
-QFIELDCLOUD_DEFAULT_NETWORK=qfieldcloud_default
-QFIELDCLOUD_TRANSFORMATION_GRIDS_VOLUME_NAME=transformation_grids
-QFIELDCLOUD_QGIS_IMAGE_NAME=qfieldcloud_qgis
+chmod +x k8s/setup-ingress-certmanager.sh
+./k8s/setup-ingress-certmanager.sh
 ```
 
-### 3. Inicie os Serviços
+### 4. Implantar a Aplicação
+
+Execute o script de implantação para aplicar todos os manifestos Kubernetes:
 
 ```bash
-docker-compose up -d
+chmod +x k8s/deploy.sh
+./k8s/deploy.sh
 ```
 
-### 4. Verifique se Todos os Serviços Estão Rodando
+### 5. Inicializar a Aplicação
+
+Execute o script de inicialização para configurar o banco de dados e criar um superusuário:
 
 ```bash
-docker-compose ps
+chmod +x k8s/initialize-app.sh
+./k8s/initialize-app.sh
 ```
 
-Todos os serviços devem estar no estado "Up".
+## Verificação da Implantação
 
-### 5. Crie um Superusuário (Administrador)
+Verifique se todos os pods estão em execução:
 
 ```bash
-docker-compose exec app python manage.py createsuperuser
+kubectl get pods -n qfieldcloud
 ```
 
-### 6. Acesse o Painel Administrativo
-
-Abra seu navegador e acesse:
-
-```
-https://localhost:8002/admin/
-```
-
-Faça login com as credenciais do superusuário criado anteriormente.
-
-## Solução de Problemas Comuns
-
-### Problema: Falha no Download de Projetos no QField Mobile
-
-Se você estiver enfrentando problemas ao baixar projetos no aplicativo QField mobile, verifique as seguintes configurações:
-
-1. **Verifique a imagem QGIS**:
-   ```bash
-   docker images | grep qgis
-   ```
-   
-   Certifique-se de que a imagem `qfieldcloud_qgis` existe. Se existir uma imagem com um nome diferente (por exemplo, com hífen em vez de underscore), atualize a variável `QFIELDCLOUD_QGIS_IMAGE_NAME` no arquivo `docker-compose.yml`:
-   
-   ```yaml
-   QFIELDCLOUD_QGIS_IMAGE_NAME: ${QFIELDCLOUD_QGIS_IMAGE_NAME:-qfieldcloud_qgis}
-   ```
-
-2. **Verifique a configuração de rede**:
-   Certifique-se de que a variável `QFIELDCLOUD_DEFAULT_NETWORK` está definida corretamente:
-   
-   ```bash
-   QFIELDCLOUD_DEFAULT_NETWORK=qfieldcloud_default docker-compose up -d
-   ```
-   
-   Ou adicione esta variável ao seu arquivo `.env`:
-   
-   ```
-   QFIELDCLOUD_DEFAULT_NETWORK=qfieldcloud_default
-   ```
-
-3. **Verifique o limite de memória do worker QGIS**:
-   Certifique-se de que a variável `WORKER_QGIS_MEMORY_LIMIT` está definida com um valor adequado:
-   
-   ```
-   WORKER_QGIS_MEMORY_LIMIT=1g
-   ```
-
-4. **Verifique o volume de grades de transformação**:
-   Certifique-se de que a variável `QFIELDCLOUD_TRANSFORMATION_GRIDS_VOLUME_NAME` está definida:
-   
-   ```
-   QFIELDCLOUD_TRANSFORMATION_GRIDS_VOLUME_NAME=transformation_grids
-   ```
-
-### Problema: Erros nos Logs do Worker Wrapper
-
-Se você estiver vendo erros nos logs do worker_wrapper, verifique-os com:
+Verifique os serviços:
 
 ```bash
-docker-compose logs worker_wrapper
+kubectl get services -n qfieldcloud
 ```
 
-Procure por mensagens de erro específicas e consulte a seção de solução de problemas acima para resolvê-las.
+Verifique o Ingress:
 
-## Monitoramento e Logs
+```bash
+kubectl get ingress -n qfieldcloud
+```
 
-Para monitorar os logs dos serviços, use os seguintes comandos:
+## Acessando a Aplicação
 
-- **Worker Wrapper (processa downloads)**:
-  ```bash
-  docker-compose logs -f worker_wrapper
-  ```
+Após a implantação bem-sucedida, você pode acessar a aplicação através do domínio configurado no Ingress (por padrão, `qfieldcloud.example.com`). Certifique-se de configurar o DNS para apontar para o endereço IP do Application Gateway.
 
-- **Aplicação Django**:
-  ```bash
-  docker-compose logs -f app
-  ```
+## Solução de Problemas
 
-- **Banco de Dados**:
-  ```bash
-  docker-compose logs -f db
-  ```
+### Verificando Logs
 
-## Atualização
+Para verificar os logs de um pod específico:
 
-Para atualizar sua instalação do QField Cloud:
+```bash
+kubectl logs -f <nome-do-pod> -n qfieldcloud
+```
 
-1. Pare os serviços:
-   ```bash
-   docker-compose down
-   ```
+### Reiniciando um Serviço
 
-2. Atualize o código-fonte:
-   ```bash
-   git pull --recurse-submodules && git submodule update --recursive
-   ```
+Para reiniciar um deployment:
 
-3. Reconstrua e inicie os serviços:
-   ```bash
-   docker-compose up -d --build
-   ```
+```bash
+kubectl rollout restart deployment <nome-do-deployment> -n qfieldcloud
+```
 
-4. Execute migrações de banco de dados, se necessário:
-   ```bash
-   docker-compose exec app python manage.py migrate
-   ```
+### Acessando um Pod
 
-## Gerenciamento de Usuários e Permissões de Projetos
+Para acessar um shell em um pod:
 
-O QField Cloud permite configurar permissões granulares para usuários, limitando o acesso a projetos específicos. Aqui está como fazer isso através da interface web:
+```bash
+kubectl exec -it <nome-do-pod> -n qfieldcloud -- /bin/bash
+```
 
-### Criação de Usuários
+## Manutenção
 
-1. Acesse o painel administrativo em `https://localhost:8002/admin/` (ou o endereço do seu servidor)
-2. Faça login com as credenciais de administrador
-3. Vá para `Usuários` na seção `AUTHENTICATION AND AUTHORIZATION`
-4. Clique em `ADD USER` para criar um novo usuário
-5. Preencha o nome de usuário e senha, depois clique em `SAVE`
-6. Na próxima tela, preencha informações adicionais como e-mail, nome e sobrenome
-7. Clique em `SAVE` novamente
+### Atualizando a Aplicação
 
-### Criação de um Projeto
+Para atualizar a aplicação, reconstrua as imagens Docker com novas tags, envie-as para o ACR e atualize os deployments:
 
-1. Acesse a interface principal do QField Cloud em `https://localhost:8002/`
-2. Faça login com as credenciais de administrador
-3. Clique em `New Project` para criar um novo projeto
-4. Preencha as informações do projeto (nome, descrição, etc.)
-5. Clique em `Create` para criar o projeto
+```bash
+# Exemplo para atualizar a aplicação principal
+docker build -t qfieldcloudacr.azurecr.io/qfieldcloud-app:v2 -f ./docker-app/Dockerfile ./docker-app
+docker push qfieldcloudacr.azurecr.io/qfieldcloud-app:v2
 
-### Configuração de Permissões de Projeto
+kubectl set image deployment/qfieldcloud-app app=qfieldcloudacr.azurecr.io/qfieldcloud-app:v2 -n qfieldcloud
+```
 
-1. Na página principal, localize o projeto que você deseja compartilhar
-2. Clique no nome do projeto para abrir a página de detalhes
-3. Clique na aba `Collaborators` (Colaboradores)
-4. Clique em `Add collaborator` (Adicionar colaborador)
-5. Digite o nome de usuário da pessoa que você deseja adicionar
-6. Selecione o nível de permissão desejado:
-   - `Reader`: Pode apenas visualizar e baixar o projeto
-   - `Editor`: Pode editar o projeto, mas não pode gerenciar colaboradores
-   - `Manager`: Pode editar o projeto e gerenciar colaboradores
-   - `Owner`: Tem controle total sobre o projeto
-7. Clique em `Add` para adicionar o usuário com as permissões especificadas
+### Escalando a Aplicação
 
-### Verificação de Acesso
+Para escalar horizontalmente um serviço:
 
-1. Faça logout da conta de administrador
-2. Faça login com as credenciais do usuário que você acabou de adicionar ao projeto
-3. Verifique se o usuário pode ver apenas o projeto específico ao qual foi concedido acesso
-4. Teste as permissões para garantir que o usuário tenha apenas os privilégios que você concedeu
-
-Com essas configurações, você pode garantir que cada usuário tenha acesso apenas aos projetos específicos que precisam, mantendo os outros projetos privados e inacessíveis para eles.
-
-## Recursos Adicionais
-
-- [Documentação oficial do QField e QFieldCloud](https://docs.qfield.org)
-- [Plataforma de ideias do QField](https://ideas.qfield.org)
-- [Suporte para QField Cloud hospedado](https://tickets.qfield.cloud)
-- [Problemas do GitHub para instalações auto-hospedadas](https://github.com/opengisch/qfieldcloud/issues)
-
-## Conclusão
-
-Seguindo este guia, você deve ter uma instalação funcional do QField Cloud que permite o download de projetos QGIS no aplicativo QField mobile, com gerenciamento adequado de usuários e permissões. Se você encontrar problemas adicionais, consulte os logs dos serviços relevantes e a documentação oficial.
+```bash
+kubectl scale deployment qfieldcloud-app --replicas=4 -n qfieldcloud
+```
