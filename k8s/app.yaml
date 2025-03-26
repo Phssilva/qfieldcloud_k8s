@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qfieldcloud-app
+  namespace: qfieldcloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qfieldcloud-app
+  template:
+    metadata:
+      labels:
+        app: qfieldcloud-app
+    spec:
+      containers:
+      - name: app
+        image: ${ACR_NAME}.azurecr.io/qfieldcloud-app:latest
+        imagePullPolicy: Always
+        command:
+        - /bin/sh
+        - -c
+        - >
+          gunicorn
+          qfieldcloud.wsgi:application
+          --bind 0.0.0.0:8000
+          --timeout $(GUNICORN_TIMEOUT_S)
+          --max-requests $(GUNICORN_MAX_REQUESTS)
+          --workers $(GUNICORN_WORKERS)
+          --threads $(GUNICORN_THREADS)
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: qfieldcloud-config
+        - secretRef:
+            name: qfieldcloud-secrets
+        volumeMounts:
+        - name: static-volume
+          mountPath: /usr/src/app/staticfiles
+        - name: media-volume
+          mountPath: /usr/src/app/mediafiles
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health/
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health/
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: qfieldcloud-static-pvc
+      - name: media-volume
+        persistentVolumeClaim:
+          claimName: qfieldcloud-media-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qfieldcloud-app
+  namespace: qfieldcloud
+spec:
+  selector:
+    app: qfieldcloud-app
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP

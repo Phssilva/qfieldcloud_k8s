@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qfieldcloud-config
+  namespace: qfieldcloud
+data:
+  ENVIRONMENT: "production"
+  DJANGO_SETTINGS_MODULE: "qfieldcloud.settings"
+  DJANGO_ALLOWED_HOSTS: "*"
+  DEBUG: "False"
+  QFIELDCLOUD_HOST: "qfieldcloud.example.com"  # Altere para seu domínio
+  QFIELDCLOUD_DEFAULT_NETWORK: "qfieldcloud_default"
+  QFIELDCLOUD_WORKER_QFIELDCLOUD_URL: "https://qfieldcloud.example.com"  # Altere para seu domínio
+  QFIELDCLOUD_QGIS_IMAGE_NAME: "qfieldcloud_qgis"
+  QFIELDCLOUD_TRANSFORMATION_GRIDS_VOLUME_NAME: "transformation_grids"
+  WORKER_QGIS_MEMORY_LIMIT: "1g"
+  GUNICORN_TIMEOUT_S: "120"
+  GUNICORN_MAX_REQUESTS: "1000"
+  GUNICORN_WORKERS: "3"
+  GUNICORN_THREADS: "2"
+  WEB_HTTP_PORT: "80"
+  WEB_HTTPS_PORT: "443"
+  NGINX_ERROR_LOG_LEVEL: "error"
+  ACCOUNT_EMAIL_VERIFICATION: "mandatory"
+  EMAIL_USE_TLS: "True"
+  EMAIL_USE_SSL: "False"
+  EMAIL_PORT: "587"
+  QFIELDCLOUD_SUBSCRIPTION_MODEL: "standard"
+  QFIELDCLOUD_AUTH_TOKEN_EXPIRATION_HOURS: "24"
+  QFIELDCLOUD_USE_I18N: "True"
+  QFIELDCLOUD_DEFAULT_LANGUAGE: "pt-br"
+  QFIELDCLOUD_DEFAULT_TIME_ZONE: "America/Sao_Paulo"
+  QFIELDCLOUD_WORKER_REPLICAS: "2"
+  STORAGES: "s3"
+  TMP_DIRECTORY: "/tmp"

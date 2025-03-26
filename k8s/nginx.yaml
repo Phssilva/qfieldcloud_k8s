@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qfieldcloud-nginx
+  namespace: qfieldcloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qfieldcloud-nginx
+  template:
+    metadata:
+      labels:
+        app: qfieldcloud-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: ${ACR_NAME}.azurecr.io/qfieldcloud-nginx:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        envFrom:
+        - configMapRef:
+            name: qfieldcloud-config
+        volumeMounts:
+        - name: static-volume
+          mountPath: /var/www/html/staticfiles
+        - name: media-volume
+          mountPath: /var/www/html/mediafiles
+        - name: nginx-config
+          mountPath: /etc/nginx/config.d
+        - name: tls-certs
+          mountPath: /etc/nginx/certs
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: qfieldcloud-static-pvc
+      - name: media-volume
+        persistentVolumeClaim:
+          claimName: qfieldcloud-media-pvc
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: tls-certs
+        secret:
+          secretName: tls-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qfieldcloud-nginx
+  namespace: qfieldcloud
+spec:
+  selector:
+    app: qfieldcloud-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+    targetPort: 443
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qfieldcloud-ingress
+  namespace: qfieldcloud
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  tls:
+  - hosts:
+    - qfieldcloud.example.com
+    secretName: tls-certs
+  rules:
+  - host: qfieldcloud.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: qfieldcloud-nginx
+            port:
+              number: 80

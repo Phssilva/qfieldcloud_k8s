@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qfieldcloud-worker-wrapper
+  namespace: qfieldcloud
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: qfieldcloud-worker-wrapper
+  template:
+    metadata:
+      labels:
+        app: qfieldcloud-worker-wrapper
+    spec:
+      containers:
+      - name: worker-wrapper
+        image: ${ACR_NAME}.azurecr.io/qfieldcloud-worker-wrapper:latest
+        imagePullPolicy: Always
+        command: ["python", "manage.py", "dequeue"]
+        envFrom:
+        - configMapRef:
+            name: qfieldcloud-config
+        - secretRef:
+            name: qfieldcloud-secrets
+        volumeMounts:
+        - name: static-volume
+          mountPath: /usr/src/app/staticfiles
+        - name: media-volume
+          mountPath: /usr/src/app/mediafiles
+        - name: transformation-grids
+          mountPath: /transformation_grids
+        - name: tmp-volume
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: static-volume
+        persistentVolumeClaim:
+          claimName: qfieldcloud-static-pvc
+      - name: media-volume
+        persistentVolumeClaim:
+          claimName: qfieldcloud-media-pvc
+      - name: transformation-grids
+        persistentVolumeClaim:
+          claimName: qfieldcloud-transformation-grids-pvc
+      - name: tmp-volume
+        emptyDir: {}
